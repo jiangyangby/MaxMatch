@@ -56,13 +56,11 @@ def _load_svhn():
     splits = collections.OrderedDict()
     pdb.set_trace()
     for split in ['train', 'test', 'extra']:
-        '''
         with tempfile.NamedTemporaryFile() as f:
             request.urlretrieve(URLS['svhn'].format(split), f.name)
             data_dict = scipy.io.loadmat(f.name)
-        '''
-        with open('/work/2021/fixmatch/'+split+'_32x32.mat', 'rb') as f:
-            data_dict = scipy.io.loadmat(f)
+        # with open('/work/2021/fixmatch/'+split+'_32x32.mat', 'rb') as f:
+        #     data_dict = scipy.io.loadmat(f)
         dataset = {}
         dataset['images'] = np.transpose(data_dict['X'], [3, 0, 1, 2])
         dataset['images'] = _encode_png(dataset['images'])
@@ -140,15 +138,13 @@ def _load_cifar100():
     def unflatten(images):
         return np.transpose(images.reshape((images.shape[0], 3, 32, 32)),
                             [0, 2, 3, 1])
-    '''
     with tempfile.NamedTemporaryFile() as f:
         request.urlretrieve(URLS['cifar100'], f.name)
         tar = tarfile.open(fileobj=f)
         data_dict = scipy.io.loadmat(tar.extractfile('cifar-100-matlab/train.mat'))
-    '''
-    with open('/work/2021/fixmatch/cifar-100-matlab.tar.gz', 'rb') as f:
-        tar = tarfile.open(fileobj=f)
-        data_dict = scipy.io.loadmat(tar.extractfile('cifar-100-matlab/train.mat'))
+    # with open('/work/2021/fixmatch/cifar-100-matlab.tar.gz', 'rb') as f:
+    #     tar = tarfile.open(fileobj=f)
+    #     data_dict = scipy.io.loadmat(tar.extractfile('cifar-100-matlab/train.mat'))
 
         train_set = {'images': data_dict['data'],
                      'labels': data_dict['fine_labels'].flatten()}
