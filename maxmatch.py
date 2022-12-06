@@ -20,31 +20,12 @@ from absl import app
 from absl import flags
 from tqdm import trange
 
-from cta.cta_remixmatch import CTAReMixMatch
-from libml import data, utils, augment, ctaugment
-import pdb
+from libml import data, utils, models
 
 FLAGS = flags.FLAGS
 
 
-class AugmentPoolCTACutOut(augment.AugmentPoolCTA):
-    @staticmethod
-    def numpy_apply_policies(arglist):
-        x, cta, probe = arglist
-        if x.ndim == 3:
-            assert probe
-            policy = cta.policy(probe=True)
-            return dict(policy=policy,
-                        probe=ctaugment.apply(x, policy),
-                        image=x)
-        assert not probe
-        cutout_policy = lambda: cta.policy(probe=False) + [ctaugment.OP('cutout', (1,))]
-        return dict(image=np.stack([x[0]] + [ctaugment.apply(y, cutout_policy()) for y in x[1:]]).astype('f'))
-
-
-class FixMatch(CTAReMixMatch):
-    AUGMENT_POOL_CLASS = AugmentPoolCTACutOut
-
+class FixMatch_RA(models.MultiModel):
     def train(self, train_nimg, report_nimg):
         if FLAGS.eval_ckpt:
             self.eval_checkpoint(FLAGS.eval_ckpt)
@@ -87,8 +68,12 @@ class FixMatch(CTAReMixMatch):
         hwc = [self.dataset.height, self.dataset.width, self.dataset.colors]
         xt_in = tf.placeholder(tf.float32, [batch] + hwc, 'xt')  # Training labeled
         x_in = tf.placeholder(tf.float32, [None] + hwc, 'x')  # Eval images
-        y_in = tf.placeholder(tf.float32, [batch * uratio, 1+FLAGS.K] + hwc, 'y')  # Training unlabeled (weak, strong)
+        # y_in = tf.placeholder(tf.float32, [batch * uratio, 2] + hwc, 'y')  # Training unlabeled (weak, strong)
+        y_in = tf.placeholder(tf.float32, [batch * uratio, 1+FLAGS.K] + hwc, 'y')
         l_in = tf.placeholder(tf.int32, [batch], 'labels')  # Labels
+
+        tf.summary.image('image/0/', y_in[:, 0])
+        tf.summary.image('image/1/', y_in[:, 1])
 
         lrate = tf.clip_by_value(tf.to_float(self.step) / (FLAGS.train_kimg << 10), 0, 1)
         lr *= tf.cos(lrate * (7 * np.pi) / (2 * 8))
@@ -100,7 +85,7 @@ class FixMatch(CTAReMixMatch):
         # x = utils.interleave(tf.concat([xt_in, y_in[:, 0], y_in[:, 1]], 0), 2 * uratio + 1)
         x = utils.interleave(tf.concat([xt_in, y_in[:, 0], tf.reshape(y_in[:, 1:], [batch * uratio * FLAGS.K, 32,32,3])], 0), (1+FLAGS.K) * uratio + 1)
         logits = utils.para_cat(lambda x: classifier(x, training=True), x)
-        # logits = utils.de_interleave(logits, 2 * uratio+1)
+        #logits = utils.de_interleave(logits, 2 * uratio+1)
         logits = utils.de_interleave(logits, (1+FLAGS.K) * uratio+1)
         post_ops = [v for v in tf.get_collection(tf.GraphKeys.UPDATE_OPS) if v not in skip_ops]
         logits_x = logits[:batch]
@@ -115,8 +100,14 @@ class FixMatch(CTAReMixMatch):
 
         # Pseudo-label cross entropy for unlabeled data
         pseudo_labels = tf.stop_gradient(tf.nn.softmax(logits_weak))
-        # loss_xeu = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.argmax(pseudo_labels, axis=1),
-        #                                                           logits=logits_strong)
+        '''
+        loss_xeu = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.argmax(pseudo_labels, axis=1),
+                                                                  logits=logits_strong)
+        pseudo_mask = tf.to_float(tf.reduce_max(pseudo_labels, axis=1) >= confidence)
+        tf.summary.scalar('monitors/mask', tf.reduce_mean(pseudo_mask))
+        loss_xeu = tf.reduce_mean(loss_xeu * pseudo_mask)
+        tf.summary.scalar('losses/xeu', loss_xeu)
+        '''
         loss_xeu = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.repeat(tf.argmax(pseudo_labels, axis=1), FLAGS.K),
                                                                   logits=logits_strong)
 
@@ -124,7 +115,6 @@ class FixMatch(CTAReMixMatch):
         tf.summary.scalar('monitors/mask', tf.reduce_mean(pseudo_mask))
         # loss_xeu = tf.reduce_mean(loss_xeu * pseudo_mask)
         loss_xeu = tf.reduce_mean(tf.reduce_max(tf.reshape(loss_xeu * pseudo_mask, [-1,FLAGS.K]), axis=1))
-        # loss_xeu = tf.reduce_mean(tf.reduce_mean(tf.reshape(loss_xeu * pseudo_mask, [-1,FLAGS.K]), axis=1))
         tf.summary.scalar('losses/xeu', loss_xeu)
 
         # L2 regularization
@@ -153,8 +143,8 @@ def main(argv):
     # dataset = data.PAIR_DATASETS()[FLAGS.dataset]()
     dataset = data.MANY_DATASETS()[FLAGS.dataset]()
     log_width = utils.ilog2(dataset.width)
-    model = FixMatch(
-        os.path.join(FLAGS.train_dir, dataset.name, FixMatch.cta_name()),
+    model = FixMatch_RA(
+        os.path.join(FLAGS.train_dir, dataset.name),
         dataset,
         lr=FLAGS.lr,
         wd=FLAGS.wd,
@@ -179,7 +169,7 @@ if __name__ == '__main__':
     flags.DEFINE_integer('repeat', 4, 'Number of residual layers per stage.')
     flags.DEFINE_integer('scales', 0, 'Number of 2x2 downscalings in the classifier.')
     flags.DEFINE_integer('uratio', 7, 'Unlabeled batch size ratio.')
-    FLAGS.set_default('augment', 'd.d.d')
+    FLAGS.set_default('augment', 'd.d.rac')
     FLAGS.set_default('dataset', 'cifar10.3@250-1')
     FLAGS.set_default('batch', 64)
     FLAGS.set_default('lr', 0.03)

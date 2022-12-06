@@ -61,10 +61,9 @@ export PYTHONPATH=$PYTHONPATH:.
 
 ### Example
 
-For example, training a MaxMatch with 32 filters on cifar10 shuffled with `seed=3`, 40 labeled samples and 1 validation sample:
+For example, training a MaxMatch (RandAugment) with 32 filters on cifar10 shuffled with `seed=3`, 40 labeled samples and 1 validation sample:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python maxmatch.py --filters=32 --K=3 --dataset=cifar10.3@40-1 --train_dir ./experiments/maxmatch_cta
-CUDA_VISIBLE_DEVICES=0 python maxmatch_ra.py --filters=32 --K=3 --dataset=cifar10.3@40-1 --train_dir ./experiments/maxmatch_ra
+CUDA_VISIBLE_DEVICES=0 python maxmatch_ra.py --filters=32 --K=3 --dataset=cifar10.3@40-1 --train_dir ./experiments/maxmatch
 ```
 
 Available labelled sizes are 10, 20, 30, 40, 100, 250, 1000, 4000.
@@ -72,22 +71,22 @@ For validation, available sizes are 1, 5000.
 Possible shuffling seeds are 1, 2, 3, 4, 5 and 0 for no shuffling (0 is not used in practiced since data requires to be
 shuffled for gradient descent to work properly).
 
-For cifar100, the filters should be `--filters=128`. For stl10, `--scale=4` should be added to adopt WRN-37-2.
+For cifar100, the filters should be `--filters=128`. For stl10, `--scale=4` should be added to adopt WRN-37-2. For CTAugment, please use ``ablation/maxmatch_cta.py``.
 
 
 #### Multi-GPU training
 ```bash
-CUDA_VISIBLE_DEVICES=4,5,6,7 python maxmatch.py --filters=32 --dataset=cifar10.3@40-1 --train_dir ./experiments/maxmatch
+CUDA_VISIBLE_DEVICES=4,5,6,7 python maxmatch_ra.py --filters=32 --dataset=cifar10.3@40-1 --train_dir ./experiments/maxmatch
 ```
 
 #### Flags
 
 ```bash
-python maxmatch.py --help
+python maxmatch_ra.py --help
 # The following option might be too slow to be really practical.
-# python maxmatch.py --helpfull
+# python maxmatch_ra.py --helpfull
 # So instead I use this hack to find the flags:
-fgrep -R flags.DEFINE libml maxmatch.py
+fgrep -R flags.DEFINE libml maxmatch_ra.py
 ```
 
 The `--K` flag controls the number of strongly augmented variants. MaxMatch `K=1` is equivalent to FixMatch.
