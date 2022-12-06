@@ -16,20 +16,18 @@ class MaxMatch(FixMatch):
             logits = self.main(im_x)
             return logits
 
-        # K = im_u_s.shape[0]  # bangyan
-        # im_u_s_K = torch.cat([im_u_s[i] for i in range(K)])  # bangyan
         batch_size_x = im_x.shape[0]
         batch_size_u = im_u_w.shape[0]
         if not self.eman:
-            inputs = torch.cat((im_x, im_u_w, im_u_s))  # bangyan
+            inputs = torch.cat((im_x, im_u_w, im_u_s))  # maxmatch
             logits = self.main(inputs)
             logits_x = logits[:batch_size_x]
             logits_u_w, logits_u_s = \
                 logits[batch_size_x:batch_size_x + batch_size_u], \
-                logits[batch_size_x + batch_size_u:]  # bangyan
+                logits[batch_size_x + batch_size_u:]  # maxmatch
         else:
             # use ema model for pesudo labels
-            inputs = torch.cat((im_x, im_u_s))  # bangyan
+            inputs = torch.cat((im_x, im_u_s))  # maxmatch
             logits = self.main(inputs)
             logits_x = logits[:batch_size_x]
             logits_u_s = logits[batch_size_x:]
