@@ -15,7 +15,7 @@ This is a PyTorch implementation of [MaxMatch](https://arxiv.org/abs/2209.12611)
 
 ### Data Preparation
 
-Install ImageNet dataset following the [official PyTorch ImageNet training code](https://github.com/pytorch/examples/tree/master/imagenet), with the standard data folder structure for the torchvision ``datasets.ImageFolder``. Unzip the semi-supervised index file ``index.zip`` and move it to the ImageNet data folder. The file structure should look like:
+Install ImageNet dataset following the [official PyTorch ImageNet training code](https://github.com/pytorch/examples/tree/master/imagenet), with the standard data folder structure for the torchvision ``datasets.ImageFolder``. Unzip the semi-supervised index file ``indexes.zip`` and move it to the ImageNet data folder. The file structure should look like:
 
   ```bash
   $ tree data
